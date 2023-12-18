@@ -1,28 +1,54 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { createProxyMiddleware } from 'http-proxy-middleware';
+
+import manifest from '../pkg/manifest.json'
+import metadata from '../pkg/metadata.json'
+
+/*
+IMPORTANT:
+This must match the process name from pkg/manifest.json + pkg/metadata.json
+The format is "/" + "process_name:package_name:publisher_node"
+*/
+const BASE_URL = `/${manifest[0].process_name}:${metadata.package}:${metadata.publisher}`;
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd());
-  console.log('ENV:', env)
-
-  const uqbarNodePort = env.VITE_NODE_PORT || 8080;
-  const BASE_URL = '/main:ui:template.uq';  // this will be the package name from pkg/manifest.json + pkg/metadata.json
-
-  return {
-    plugins: [react()],
-    server: {
-      base: BASE_URL,
-      configureServer: ({ middlewares }) => {
-        middlewares.use(
-          '/our.js', // Specify the path to the file
-          createProxyMiddleware({
-            target: 'http://localhost:8080/our.js', // The target server where the file is located
-            changeOrigin: true,
-          })
-        );
+export default defineConfig({
+  plugins: [react()],
+  base: BASE_URL,
+  build: {
+    rollupOptions: {
+      external: ['/our.js']
+    }
+  },
+  server: {
+    proxy: {
+      '/our': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
       },
-    },
-  };
+      [`${BASE_URL}/our.js`]: {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(BASE_URL, ''),
+      },
+      // '/example': {
+      //   target: 'http://127.0.0.1:8080',
+      //   changeOrigin: true,
+      //   rewrite: (path) => path.replace(BASE_URL, ''),
+      // // This is only for debugging purposes
+      //   configure: (proxy, _options) => {
+      //     proxy.on('error', (err, _req, _res) => {
+      //       console.log('proxy error', err);
+      //     });
+      //     proxy.on('proxyReq', (proxyReq, req, _res) => {
+      //       console.log('Sending Request to the Target:', req.method, req.url);
+      //     });
+      //     proxy.on('proxyRes', (proxyRes, req, _res) => {
+      //       console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+      //     });
+      //   },
+      // },
+      // ADD YOUR PROXY ROUTES HERE
+    }
+  }
 });

@@ -2,9 +2,16 @@
 
 Based on the Vite React Typescript template.
 
+## Setup
 
+When using `uqdev new`, the `BASE_URL` on line 9 of `vite.config.ts` will be set automatically.
+If you change the process name that will serve the UI, you must update the `BASE_URL` to match.
 
+## public vs assets
 
+The `public/assets` folder contains files that are referenced in `index.html`, `src/assets` is for asset files that are only referenced in `src` code.
+
+## About Vite + React
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

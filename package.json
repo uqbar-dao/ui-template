@@ -7,11 +7,12 @@
     "dev": "vite --port 3000",
     "start": "vite --port 3000",
     "build": "tsc && vite build",
+    "copy": "mv dist ../pkg/ui",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@uqbar/client-encryptor-api": "../client-encryptor",
+    "@uqbar/client-encryptor-api": "^0.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
