@@ -8,6 +8,14 @@ When using `uqdev new`, the `BASE_URL` on line 9 of `vite.config.ts` will be set
 The `BASE_URL` will be the first process in `manifest.json`, the `package` from `metadata.json`, and `publisher` from `metadata.json`.
 If you have multiple processes in `manifest.json`, make sure the first process will be the one serving the UI.
 
+## Development
+
+Run `npm i` and then `npm start` to start working on the UI.
+
+#### Http Proxying in Development
+
+You must add any proxied routes to `vite.config.ts`. There is a commented example with debug logging.
+
 ## public vs assets
 
 The `public/assets` folder contains files that are referenced in `index.html`, `src/assets` is for asset files that are only referenced in `src` code.

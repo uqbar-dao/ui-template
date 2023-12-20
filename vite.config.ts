@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+/*
+If you are developing a UI outside of an Uqbar project,
+comment out the following 2 lines:
+*/
 import manifest from '../pkg/manifest.json'
 import metadata from '../pkg/metadata.json'
 
@@ -11,7 +15,6 @@ The format is "/" + "process_name:package_name:publisher_node"
 */
 const BASE_URL = `/${manifest[0].process_name}:${metadata.package}:${metadata.publisher}`;
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   base: BASE_URL,
@@ -21,6 +24,7 @@ export default defineConfig({
     }
   },
   server: {
+    open: true,
     proxy: {
       '/our': {
         target: 'http://127.0.0.1:8080',
@@ -30,6 +34,11 @@ export default defineConfig({
         target: 'http://127.0.0.1:8080',
         changeOrigin: true,
         rewrite: (path) => path.replace(BASE_URL, ''),
+      },
+      [`${BASE_URL}/messages`]: {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+        // rewrite: (path) => path.replace(BASE_URL, ''),
       },
       // '/example': {
       //   target: 'http://127.0.0.1:8080',

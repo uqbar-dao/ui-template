@@ -1,46 +1,238 @@
-import { useState, useEffect } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/assets/vite.svg'
-import UqbarEncryptorApi from '@uqbar/client-encryptor-api'
-import './App.css'
+import { useState, useEffect, useCallback } from "react";
+import reactLogo from "./assets/react.svg";
+import viteLogo from "/assets/vite.svg";
+import UqbarEncryptorApi from "@uqbar/client-encryptor-api";
+import "./App.css";
+import { SendChatMessage } from "./types/Chat";
+import useChatStore from "./store/chat";
 
-if (window.our) window.our.process = import.meta.env.BASE_URL?.slice(1)
+const BASE_URL = import.meta.env.BASE_URL;
+if (window.our) window.our.process = BASE_URL?.replace("/", "");
 
 // This env also has BASE_URL which should match the process + package name
-const WEBSOCKET_URL = import.meta.env.DEV ? `ws://localhost:${import.meta.env.VITE_NODE_PORT || 8080}` : undefined
+const WEBSOCKET_URL = import.meta.env.DEV
+  ? `ws://localhost:${import.meta.env.VITE_NODE_PORT || 8080}`
+  : undefined;
 
 function App() {
-  const [count, setCount] = useState(0)
-  const [nodeConnected, setNodeConnected] = useState(true)
+  const { chats, addMessage, set } = useChatStore();
+  const [selectedChat, setSelectedChat] = useState("New Chat");
+
+  const [target, setTarget] = useState("");
+  const [message, setMessage] = useState("");
+  const [nodeConnected, setNodeConnected] = useState(true);
+  const [api, setApi] = useState<UqbarEncryptorApi | undefined>();
 
   useEffect(() => {
+    // Get message history using http
+    fetch(`${BASE_URL}/messages`)
+      .then((response) => response.json())
+      .then((data) => {
+        set({ chats: { ...(data?.History?.messages || {}), "New Chat": [] } });
+      })
+      .catch((error) => console.error(error));
+
     // Connect to the uqbar node via websocket
-    if (window.our?.node) {
-      new UqbarEncryptorApi({
+    if (window.our?.node && window.our?.process) {
+      const api = new UqbarEncryptorApi({
         uri: WEBSOCKET_URL,
         nodeId: window.our.node,
-        processId: import.meta.env.BASE_URL, // this is set in your vite.config.ts
-        onOpen: (_event, api) => {
-          console.log('Connected to uqbar node')
-          // Send a message to the node via websocket
-          api.send({ data: 'Hello World' })
+        processId: window.our.process,
+        onOpen: (_event, _api) => {
+          console.log("Connected to uqbar node");
+          api.send({ data: "Hello World" });
         },
-      })
+        onMessage: (json, _api) => {
+          try {
+            const data = JSON.parse(json);
+            console.log("WebSocket received message", data);
+            const [messageType] = Object.keys(data);
+            if (!messageType) return;
+
+            if (messageType === "NewMessage") {
+              addMessage(data.NewMessage);
+            }
+          } catch (error) {
+            console.error("Error parsing WebSocket message", error);
+          }
+        },
+      });
+
+      setApi(api);
     } else {
-      setNodeConnected(false)
+      setNodeConnected(false);
     }
-  }, [])
+  }, []);
+
+  const startChat = useCallback(
+    (event) => {
+      event.preventDefault();
+
+      if (!api || !target) return;
+
+      const newChats = { ...chats };
+      newChats[target] = [];
+
+      setSelectedChat(target);
+      set({ chats: newChats });
+
+      setTarget("");
+    },
+    [api, chats, set, setSelectedChat, target, setTarget]
+  );
+
+  const sendMessage = useCallback(
+    async (event) => {
+      event.preventDefault();
+
+      if (!api || !message || !selectedChat) return;
+
+      // Create a message object
+      const data = {
+        Send: {
+          target: selectedChat,
+          message,
+        },
+      } as SendChatMessage;
+
+      // Send a message to the node via websocket
+      // api.send({ data });
+
+      try {
+        // Send a message to the node via HTTP request
+        await fetch(`${BASE_URL}/messages`, {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+
+        // Add the message if the POST request was successful
+        const newChats = { ...chats };
+        newChats[selectedChat].push({ author: window.our?.node, content: message });
+        set({ chats: newChats });
+        setMessage("");
+      } catch (error) {
+        console.error(error);
+      }
+    },
+    [api, message, setMessage, selectedChat, chats, set]
+  );
 
   return (
-    <>
-      {!nodeConnected &&
+    <div style={{ width: "100%" }}>
+      <div style={{ position: "absolute", top: 4, left: 8 }}>
+        ID: <strong>{window.our?.node}</strong>
+      </div>
+      {!nodeConnected && (
         <div className="node-not-connected">
-          <h2 style={{ color: 'red' }}>Node not connected</h2>
+          <h2 style={{ color: "red" }}>Node not connected</h2>
           <h4>
-            You need to start a node at http://localhost:{import.meta.env.VITE_NODE_PORT || 8080} before you can use this UI in development.
+            You need to start a node at http://localhost:
+            {import.meta.env.VITE_NODE_PORT || 8080} before you can use this UI
+            in development.
           </h4>
         </div>
-      }
+      )}
+      <h2>Simple Chat on Uqbar</h2>
+      <div className="card">
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            border: "1px solid gray",
+          }}
+        >
+          <div
+            style={{ flex: 1, borderRight: "1px solid gray", padding: "1em" }}
+          >
+            <h3 style={{ marginTop: 0 }}>Chats</h3>
+            <ul>
+              {Object.keys(chats).map((chatId) => (
+                <li key={chatId}>
+                  <button
+                    onClick={() => setSelectedChat(chatId)}
+                    className={`chat-button ${selectedChat === chatId ? "selected" : ""}`}
+                  >
+                    {chatId}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              flex: 2,
+              padding: "1em",
+            }}
+          >
+            <h3 style={{ marginTop: 0, textAlign: 'left' }}>{selectedChat}</h3>
+            {selectedChat === "New Chat" ? (
+              <form
+                onSubmit={startChat}
+                style={{ display: "flex", flexDirection: "column" }}
+              >
+                <label
+                  style={{ fontWeight: 600, alignSelf: "flex-start" }}
+                  htmlFor="target"
+                >
+                  Node
+                </label>
+                <input
+                  style={{
+                    padding: "0.25em 0.5em",
+                    fontSize: "1em",
+                    marginBottom: "1em",
+                  }}
+                  type="text"
+                  id="target"
+                  value={target}
+                  onChange={(event) => setTarget(event.target.value)}
+                />
+                <button type="submit">Start New Chat</button>
+              </form>
+            ) : (
+              <div>
+                <div>
+                  <ul className="message-list">
+                    {selectedChat &&
+                      chats[selectedChat]?.map((message, index) => (
+                        <li key={index} className={`message ${message.author === window.our?.node ? 'ours' : ''}`}>
+                          {message.content}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+                <form
+                  onSubmit={sendMessage}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    width: "100%",
+                  }}
+                >
+                  <div className="input-row">
+                    <input
+                      type="text"
+                      id="message"
+                      placeholder="Message"
+                      value={message}
+                      onChange={(event) => setMessage(event.target.value)}
+                      autoFocus
+                    />
+                    <button type="submit">Send</button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+        <p>
+          Edit <code>src/App.tsx</code> and save to test Hot Module Reloading
+          (HMR)
+        </p>
+      </div>
       <div>
         <a href="https://vitejs.dev" target="_blank">
           <img src={viteLogo} className="logo" alt="Vite logo" />
@@ -49,21 +241,11 @@ function App() {
           <img src={reactLogo} className="logo react" alt="React logo" />
         </a>
       </div>
-      <h1>Vite + React</h1>
-      <h3>on Uqbar</h3>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test Hot Module Reloading (HMR)
-        </p>
-      </div>
       <p className="read-the-docs">
         Click on the Vite and React logos to learn more
       </p>
-    </>
-  )
+    </div>
+  );
 }
 
-export default App
+export default App;
