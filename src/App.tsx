@@ -11,7 +11,7 @@ if (window.our) window.our.process = BASE_URL?.replace("/", "");
 
 // This env also has BASE_URL which should match the process + package name
 const WEBSOCKET_URL = import.meta.env.DEV
-  ? `ws://localhost:${import.meta.env.VITE_NODE_PORT || 8080}`
+  ? `ws://localhost:${import.meta.env.VITE_NODE_PORT || 8080}${BASE_URL}`
   : undefined;
 
 function App() {
@@ -40,9 +40,10 @@ function App() {
         processId: window.our.process,
         onOpen: (_event, _api) => {
           console.log("Connected to uqbar node");
-          api.send({ data: "Hello World" });
+          // api.send({ data: "Hello World" });
         },
         onMessage: (json, _api) => {
+          console.log('WEBSOCKET MESSAGE', json)
           try {
             const data = JSON.parse(json);
             console.log("WebSocket received message", data);
@@ -96,14 +97,17 @@ function App() {
       } as SendChatMessage;
 
       // Send a message to the node via websocket
-      // api.send({ data });
+      api.send({ data });
+      // setMessage("");
 
+      // Send a message to the node via HTTP request
       try {
-        // Send a message to the node via HTTP request
-        await fetch(`${BASE_URL}/messages`, {
+        const result = await fetch(`${BASE_URL}/messages`, {
           method: "POST",
           body: JSON.stringify(data),
         });
+
+        if (!result.ok) throw new Error("HTTP request failed");
 
         // Add the message if the POST request was successful
         const newChats = { ...chats };

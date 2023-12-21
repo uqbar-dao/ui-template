@@ -15,6 +15,9 @@ The format is "/" + "process_name:package_name:publisher_node"
 */
 const BASE_URL = `/${manifest[0].process_name}:${metadata.package}:${metadata.publisher}`;
 
+// This is the proxy URL, it must match the node you are developing against
+const PROXY_URL = process.env.VITE_API_URL || 'http://127.0.0.1:8080';
+
 export default defineConfig({
   plugins: [react()],
   base: BASE_URL,
@@ -27,21 +30,21 @@ export default defineConfig({
     open: true,
     proxy: {
       '/our': {
-        target: 'http://127.0.0.1:8080',
+        target: PROXY_URL,
         changeOrigin: true,
       },
       [`${BASE_URL}/our.js`]: {
-        target: 'http://127.0.0.1:8080',
+        target: PROXY_URL,
         changeOrigin: true,
         rewrite: (path) => path.replace(BASE_URL, ''),
       },
-      [`${BASE_URL}/messages`]: {
-        target: 'http://127.0.0.1:8080',
+      // This route will match all other HTTP requests to the backend
+      [`^/(?!$)`]: {
+        target: PROXY_URL,
         changeOrigin: true,
-        // rewrite: (path) => path.replace(BASE_URL, ''),
       },
       // '/example': {
-      //   target: 'http://127.0.0.1:8080',
+      //   target: PROXY_URL,
       //   changeOrigin: true,
       //   rewrite: (path) => path.replace(BASE_URL, ''),
       // // This is only for debugging purposes
@@ -57,7 +60,6 @@ export default defineConfig({
       //     });
       //   },
       // },
-      // ADD YOUR PROXY ROUTES HERE
     }
   }
 });
